@@ -16,4 +16,14 @@ The extension can work in HA mode.
 
 ## How to use
 
-TODO
+```bash
+$> kubectl apply -f https://raw.githubusercontent.com/mudler/eirini-ingress/master/contrib/kube.yaml
+```
+
+*Note: In case Eirini is not deploying the workload in the namespace `eirini`, you might need to tweak the role binding manually.*
+
+### Uninstall
+
+```bash
+$> kubectl delete -f https://raw.githubusercontent.com/mudler/eirini-ingress/master/contrib/kube.yaml
+```
