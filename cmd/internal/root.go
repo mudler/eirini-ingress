@@ -8,6 +8,10 @@ import (
 	ingress "github.com/mudler/eirini-ingress/extensions/ingress"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/apimachinery/pkg/api/meta"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/client-go/tools/cache"
 )
 
 var cfgFile string
@@ -27,18 +31,42 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
+		ns := viper.GetString("namespace")
 		filter := false
-		x := eirinix.NewManager(
-			eirinix.ManagerOptions{
-				Namespace:           viper.GetString("namespace"),
-				KubeConfig:          viper.GetString("kubeconfig"),
-				OperatorFingerprint: "eirini-ingress", // Not really used for now, but setting it up for future
-				FilterEiriniApps:    &filter,
-			})
-		x.GetLogger().Info("Starting watcher in", x.GetManagerOptions().Namespace)
+		opts := eirinix.ManagerOptions{
+			Namespace:           ns,
+			KubeConfig:          viper.GetString("kubeconfig"),
+			OperatorFingerprint: "eirini-ingress", // Not really used for now, but setting it up for future
+			FilterEiriniApps:    &filter,
+		}
+		x := eirinix.NewManager(opts)
+		x.GetLogger().Info("Starting watcher in ", x.GetManagerOptions().Namespace)
 		x.GetLogger().Info(" Kubeconfig ", x.GetManagerOptions().KubeConfig)
-		x.AddWatcher(ingress.NewPodWatcher())
 
+		// Getting start RV for the specific namespace
+		client, err := x.GetKubeClient()
+		if err != nil {
+			x.GetLogger().Error((err.Error()))
+		}
+
+		lw := cache.NewListWatchFromClient(client.RESTClient(), "pods", ns, fields.Everything())
+		list, err := lw.List(metav1.ListOptions{})
+		if err != nil {
+			x.GetLogger().Error((err.Error()))
+			os.Exit(1)
+
+		}
+
+		metaObj, err := meta.ListAccessor(list)
+		if err != nil {
+			x.GetLogger().Error((err.Error()))
+			os.Exit(1)
+
+		}
+
+		opts.WatcherStartRV = metaObj.GetResourceVersion()
+		x.SetManagerOptions(opts)
+		x.AddWatcher(ingress.NewPodWatcher())
 		err = x.Watch()
 		if err != nil {
 			fmt.Println(err.Error())
