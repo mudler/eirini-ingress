@@ -1,4 +1,4 @@
-# EiriniX Ingress extension
+# [![Docker Repository on Quay](https://quay.io/repository/mudler/eirinix-ingress/status "Docker Repository on Quay")](https://quay.io/repository/mudler/eirinix-ingress) ![Build and Test](https://github.com/mudler/eirini-ingress/workflows/Build%20and%20Test/badge.svg) EiriniX Ingress extension
 
 This is a simple PoC for Eirini ingress extension.
 
