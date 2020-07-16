@@ -1,0 +1,92 @@
+package ingress_test
+
+import (
+	"fmt"
+
+	eirinix "github.com/SUSE/eirinix"
+	. "github.com/mudler/eirini-ingress/extensions/ingress"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+var _ = Describe("Route Handler", func() {
+	Context("when evaluating pods", func() {
+
+		var (
+			app EiriniApp
+		)
+
+		BeforeEach(func() {
+			app = NewEiriniApp(&corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "foo",
+					Name:      "dizzylizard-test-79699025f0-0",
+					Labels: map[string]string{
+						eirinix.LabelGUID: "test",
+					},
+					Annotations: map[string]string{
+						AppNameAnnotation: "foo",
+						RoutesAnnotation:  `[{"hostname":"dizzylizard.cap.xxxxx.nip.io","port":8080}]`,
+					},
+				}})
+		})
+
+		Context("standard Eirini App", func() {
+			It("decodes it correctly", func() {
+				Expect(app.PodName).Should(Equal("dizzylizard-test-79699025f0-0"))
+				Expect(app.Routes[0].Hostname).Should(Equal("dizzylizard.cap.xxxxx.nip.io"))
+
+				Expect(app.FirstInstance()).Should(BeTrue())
+				Expect(app.Validate()).Should(BeTrue(), fmt.Sprint(app))
+
+				Expect(len(app.DesiredService().Spec.Ports)).Should(Equal(1))
+				Expect(app.DesiredService().Spec.Ports[0].TargetPort.String()).Should(Equal("8080"))
+				Expect(app.DesiredService().Spec.Selector).Should(Equal(map[string]string{
+					eirinix.LabelGUID: "test",
+				}))
+
+				Expect(len(app.DesiredIngress().Spec.Rules)).Should(Equal(1))
+				Expect(app.DesiredIngress().Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app.DesiredService().Name))
+				Expect(app.DesiredIngress().Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app.DesiredService().Spec.Ports[0].TargetPort.String()))
+			})
+		})
+
+		Context("App updates", func() {
+			var app2 EiriniApp
+			BeforeEach(func() {
+				app2 = NewEiriniApp(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "foo",
+						Name:      "dizzylizard-test-79699025f0-0",
+						Labels: map[string]string{
+							eirinix.LabelGUID: "test2",
+						},
+						Annotations: map[string]string{
+							AppNameAnnotation: "foo",
+							RoutesAnnotation:  `[{"hostname":"dest.cap.xxxxx.nip.io","port":22}, {"hostname":"dizzylizard2.cap.xxxxx.nip.io","port":8080}]`,
+						},
+					}})
+			})
+
+			It("updates it correctly", func() {
+
+				currentsvc := app.DesiredService()
+				currentingr := app.DesiredIngress()
+				app2.UpdateService(currentsvc)
+				app2.UpdateIngress(currentingr)
+				Expect(len(currentsvc.Spec.Ports)).Should(Equal(1))
+				Expect(currentsvc.Spec.Ports[0].TargetPort.String()).Should(Equal("22"))
+				Expect(currentsvc.Spec.Selector).Should(Equal(map[string]string{
+					eirinix.LabelGUID: "test2",
+				}))
+
+				Expect(len(currentingr.Spec.Rules)).Should(Equal(2))
+				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app2.DesiredService().Name))
+				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app2.DesiredService().Spec.Ports[0].TargetPort.String()))
+				Expect(app2.Routes[1].Hostname).Should(Equal("dizzylizard2.cap.xxxxx.nip.io"))
+			})
+		})
+	})
+})

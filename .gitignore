@@ -1,0 +1,26 @@
+binaries/
+/vendor
+# Temp dir for generated kube files
+/_tmp
+
+# Test binary, build with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+### Vim ###
+# swap
+.sw[a-p]
+.*.sw[a-p]
+# session
+Session.vim
+# temporary
+.netrwhist
+# auto-generated tag files
+tags
+### VisualStudioCode ###
+.vscode/*
+.history
+# End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+### IDEA ###
+.idea/
