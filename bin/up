@@ -2,9 +2,8 @@
 
 set -e
 
-. ./bin/include/versioning
 . ./.envrc
 
 bin/build
 echo "watching namespace ${NAMESPACE}"
-binaries/eirini-ext
+binaries/eirini-ingress
