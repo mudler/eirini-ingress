@@ -84,3 +84,5 @@ spec:
           env:
             - name: NAMESPACE
               value: "eirini"
+            - name: LABELS
+              value: '{ "eirinix-ingress": "true" }'

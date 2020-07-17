@@ -20,8 +20,6 @@ var kubeconfig string
 var namespace string
 var labels string
 
-var resourceLabels map[string]string
-
 var rootCmd = &cobra.Command{
 	Use:   "eirini-ingress",
 	Short: "eirini-ingress creates ingress and services for apps pushed in Cloud Foundry",
@@ -37,9 +35,10 @@ var rootCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
+		var resourceLabels = make(map[string]string)
 
 		ns := viper.GetString("namespace")
-		json.Unmarshal([]byte(labels), &resourceLabels)
+		json.Unmarshal([]byte(viper.GetString("labels")), &resourceLabels)
 		filter := false
 		opts := eirinix.ManagerOptions{
 			Namespace:           ns,
