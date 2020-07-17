@@ -8,8 +8,8 @@ import (
 type RouteHandler interface {
 	Validate() bool
 	FirstInstance() bool
-	UpdateService(svc *corev1.Service) *corev1.Service
-	UpdateIngress(in *v1beta1.Ingress) *v1beta1.Ingress
-	DesiredService() *corev1.Service
-	DesiredIngress() *v1beta1.Ingress
+	UpdateService(svc *corev1.Service, labels map[string]string) *corev1.Service
+	UpdateIngress(in *v1beta1.Ingress, labels map[string]string) *v1beta1.Ingress
+	DesiredService(map[string]string) *corev1.Service
+	DesiredIngress(map[string]string) *v1beta1.Ingress
 }

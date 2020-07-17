@@ -67,8 +67,8 @@ func (e EiriniApp) FirstInstance() bool {
 }
 
 // UpdateService updates the given service from the Eirini app desired state
-func (e EiriniApp) UpdateService(svc *corev1.Service) *corev1.Service {
-	desired := e.DesiredService()
+func (e EiriniApp) UpdateService(svc *corev1.Service, labels map[string]string) *corev1.Service {
+	desired := e.DesiredService(labels)
 	// Updates only the ports
 	svc.Spec.Ports = desired.Spec.Ports
 	svc.Spec.Selector = desired.Spec.Selector
@@ -76,22 +76,20 @@ func (e EiriniApp) UpdateService(svc *corev1.Service) *corev1.Service {
 }
 
 // UpdateIngress updates the given ingress from the Eirini app desired state
-func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress) *v1beta1.Ingress {
-	desired := e.DesiredIngress()
+func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels map[string]string) *v1beta1.Ingress {
+	desired := e.DesiredIngress(labels)
 	// Updates only the routes
 	in.Spec.Rules = desired.Spec.Rules
 	return in
 }
 
 // DesiredService generates the desired service from the routes annotated in the Eirini App
-func (e EiriniApp) DesiredService() *corev1.Service {
+func (e EiriniApp) DesiredService(labels map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      e.Name,
 			Namespace: e.Namespace,
-			Labels: map[string]string{
-				"eirinix-ingress": "true",
-			},
+			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt(e.Routes[0].Port)}},
@@ -103,7 +101,7 @@ func (e EiriniApp) DesiredService() *corev1.Service {
 }
 
 // DesiredIngress generates the desired ingress from the routes annotated in the Eirini App
-func (e EiriniApp) DesiredIngress() *v1beta1.Ingress {
+func (e EiriniApp) DesiredIngress(labels map[string]string) *v1beta1.Ingress {
 	rules := []v1beta1.IngressRule{}
 	for _, route := range e.Routes {
 		rules = append(rules, v1beta1.IngressRule{
@@ -112,7 +110,7 @@ func (e EiriniApp) DesiredIngress() *v1beta1.Ingress {
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: []v1beta1.HTTPIngressPath{{Path: "/",
 						Backend: v1beta1.IngressBackend{
-							ServiceName: e.DesiredService().ObjectMeta.Name,
+							ServiceName: e.DesiredService(labels).ObjectMeta.Name,
 							ServicePort: intstr.FromInt(route.Port),
 						},
 					}},
@@ -125,9 +123,7 @@ func (e EiriniApp) DesiredIngress() *v1beta1.Ingress {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      e.Name,
 			Namespace: e.Namespace,
-			Labels: map[string]string{
-				"k8s-app": "kube-controller-manager",
-			},
+			Labels:    labels,
 		},
 		Spec: v1beta1.IngressSpec{
 			//	TLS: []v1beta1.IngressTLS{{Hosts: []string{}, SecretName: ""}},

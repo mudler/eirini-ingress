@@ -41,15 +41,15 @@ var _ = Describe("Route Handler", func() {
 				Expect(app.FirstInstance()).Should(BeTrue())
 				Expect(app.Validate()).Should(BeTrue(), fmt.Sprint(app))
 
-				Expect(len(app.DesiredService().Spec.Ports)).Should(Equal(1))
-				Expect(app.DesiredService().Spec.Ports[0].TargetPort.String()).Should(Equal("8080"))
-				Expect(app.DesiredService().Spec.Selector).Should(Equal(map[string]string{
+				Expect(len(app.DesiredService(nil).Spec.Ports)).Should(Equal(1))
+				Expect(app.DesiredService(nil).Spec.Ports[0].TargetPort.String()).Should(Equal("8080"))
+				Expect(app.DesiredService(nil).Spec.Selector).Should(Equal(map[string]string{
 					eirinix.LabelGUID: "test",
 				}))
 
-				Expect(len(app.DesiredIngress().Spec.Rules)).Should(Equal(1))
-				Expect(app.DesiredIngress().Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app.DesiredService().Name))
-				Expect(app.DesiredIngress().Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app.DesiredService().Spec.Ports[0].TargetPort.String()))
+				Expect(len(app.DesiredIngress(nil).Spec.Rules)).Should(Equal(1))
+				Expect(app.DesiredIngress(nil).Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app.DesiredService(nil).Name))
+				Expect(app.DesiredIngress(nil).Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app.DesiredService(nil).Spec.Ports[0].TargetPort.String()))
 			})
 		})
 
@@ -72,10 +72,10 @@ var _ = Describe("Route Handler", func() {
 
 			It("updates it correctly", func() {
 
-				currentsvc := app.DesiredService()
-				currentingr := app.DesiredIngress()
-				app2.UpdateService(currentsvc)
-				app2.UpdateIngress(currentingr)
+				currentsvc := app.DesiredService(nil)
+				currentingr := app.DesiredIngress(nil)
+				app2.UpdateService(currentsvc, nil)
+				app2.UpdateIngress(currentingr, nil)
 				Expect(len(currentsvc.Spec.Ports)).Should(Equal(1))
 				Expect(currentsvc.Spec.Ports[0].TargetPort.String()).Should(Equal("22"))
 				Expect(currentsvc.Spec.Selector).Should(Equal(map[string]string{
@@ -83,8 +83,8 @@ var _ = Describe("Route Handler", func() {
 				}))
 
 				Expect(len(currentingr.Spec.Rules)).Should(Equal(2))
-				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app2.DesiredService().Name))
-				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app2.DesiredService().Spec.Ports[0].TargetPort.String()))
+				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app2.DesiredService(nil).Name))
+				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app2.DesiredService(nil).Spec.Ports[0].TargetPort.String()))
 				Expect(app2.Routes[1].Hostname).Should(Equal("dizzylizard2.cap.xxxxx.nip.io"))
 			})
 		})
