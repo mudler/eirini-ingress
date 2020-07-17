@@ -16,12 +16,12 @@ type PodWatcher struct {
 	CustomLabels    map[string]string
 }
 
-func NewPodWatcher() *PodWatcher {
+func NewPodWatcher(labels map[string]string) *PodWatcher {
 	return &PodWatcher{
 		GetRouteHandler: func(pod *corev1.Pod) RouteHandler {
 			return NewEiriniApp(pod)
 		},
-		CustomLabels: map[string]string{},
+		CustomLabels: labels,
 	}
 }
 

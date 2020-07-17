@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -17,6 +18,10 @@ import (
 var cfgFile string
 var kubeconfig string
 var namespace string
+var labels string
+
+var resourceLabels map[string]string
+
 var rootCmd = &cobra.Command{
 	Use:   "eirini-ingress",
 	Short: "eirini-ingress creates ingress and services for apps pushed in Cloud Foundry",
@@ -24,14 +29,17 @@ var rootCmd = &cobra.Command{
 
 		viper.BindPFlag("kubeconfig", cmd.Flags().Lookup("kubeconfig"))
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+		viper.BindPFlag("labels", cmd.Flags().Lookup("labels"))
 
-		viper.BindEnv("kubeconfig")
+		viper.BindEnv("kubeconfig", "KUBECONFIG")
 		viper.BindEnv("namespace", "NAMESPACE")
+		viper.BindEnv("labels", "LABELS")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 
 		ns := viper.GetString("namespace")
+		json.Unmarshal([]byte(labels), &resourceLabels)
 		filter := false
 		opts := eirinix.ManagerOptions{
 			Namespace:           ns,
@@ -42,7 +50,7 @@ var rootCmd = &cobra.Command{
 		x := eirinix.NewManager(opts)
 		x.GetLogger().Info("Starting watcher in ", x.GetManagerOptions().Namespace)
 		x.GetLogger().Info(" Kubeconfig ", x.GetManagerOptions().KubeConfig)
-
+		x.GetLogger().Info("Labels: ", resourceLabels)
 		// Getting start RV for the specific namespace
 		client, err := x.GetKubeClient()
 		if err != nil {
@@ -66,7 +74,7 @@ var rootCmd = &cobra.Command{
 
 		opts.WatcherStartRV = metaObj.GetResourceVersion()
 		x.SetManagerOptions(opts)
-		x.AddWatcher(ingress.NewPodWatcher())
+		x.AddWatcher(ingress.NewPodWatcher(resourceLabels))
 		err = x.Watch()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -85,4 +93,6 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "eirini", "Namespace to watch for Eirini apps")
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "Path to a kubeconfig, not required in-cluster")
+	rootCmd.PersistentFlags().StringVarP(&labels, "labels", "l", "", "Label to apply to the created resources ( json form '{ 'foo': 'bar' }' )")
+
 }
