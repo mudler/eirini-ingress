@@ -2,6 +2,7 @@ package ingress
 
 import (
 	"encoding/json"
+	"fmt"
 
 	eirinix "github.com/SUSE/eirinix"
 	corev1 "k8s.io/api/core/v1"
@@ -76,8 +77,8 @@ func (e EiriniApp) UpdateService(svc *corev1.Service, labels map[string]string) 
 }
 
 // UpdateIngress updates the given ingress from the Eirini app desired state
-func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels map[string]string) *v1beta1.Ingress {
-	desired := e.DesiredIngress(labels)
+func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels map[string]string, tls bool) *v1beta1.Ingress {
+	desired := e.DesiredIngress(labels, tls)
 	// Updates only the routes
 	in.Spec.Rules = desired.Spec.Rules
 	return in
@@ -101,7 +102,7 @@ func (e EiriniApp) DesiredService(labels map[string]string) *corev1.Service {
 }
 
 // DesiredIngress generates the desired ingress from the routes annotated in the Eirini App
-func (e EiriniApp) DesiredIngress(labels map[string]string) *v1beta1.Ingress {
+func (e EiriniApp) DesiredIngress(labels map[string]string, tls bool) *v1beta1.Ingress {
 	rules := []v1beta1.IngressRule{}
 	for _, route := range e.Routes {
 		rules = append(rules, v1beta1.IngressRule{
@@ -119,15 +120,28 @@ func (e EiriniApp) DesiredIngress(labels map[string]string) *v1beta1.Ingress {
 		})
 	}
 
+	spec := v1beta1.IngressSpec{
+		Rules: rules,
+	}
+
+	if tls {
+		tlsEntry := []v1beta1.IngressTLS{}
+		for _, route := range e.Routes {
+			tlsEntry = append(tlsEntry,
+				v1beta1.IngressTLS{
+					Hosts:      []string{route.Hostname},
+					SecretName: fmt.Sprintf("%s-tls", e.DesiredService(labels).ObjectMeta.Name),
+				})
+		}
+		spec.TLS = tlsEntry
+	}
+
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      e.Name,
 			Namespace: e.Namespace,
 			Labels:    labels,
 		},
-		Spec: v1beta1.IngressSpec{
-			//	TLS: []v1beta1.IngressTLS{{Hosts: []string{}, SecretName: ""}},
-			Rules: rules,
-		},
+		Spec: spec,
 	}
 }

@@ -47,9 +47,9 @@ var _ = Describe("Route Handler", func() {
 					eirinix.LabelGUID: "test",
 				}))
 
-				Expect(len(app.DesiredIngress(nil).Spec.Rules)).Should(Equal(1))
-				Expect(app.DesiredIngress(nil).Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app.DesiredService(nil).Name))
-				Expect(app.DesiredIngress(nil).Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app.DesiredService(nil).Spec.Ports[0].TargetPort.String()))
+				Expect(len(app.DesiredIngress(nil, false).Spec.Rules)).Should(Equal(1))
+				Expect(app.DesiredIngress(nil, false).Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app.DesiredService(nil).Name))
+				Expect(app.DesiredIngress(nil, false).Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app.DesiredService(nil).Spec.Ports[0].TargetPort.String()))
 			})
 		})
 
@@ -73,9 +73,9 @@ var _ = Describe("Route Handler", func() {
 			It("updates it correctly", func() {
 
 				currentsvc := app.DesiredService(nil)
-				currentingr := app.DesiredIngress(nil)
+				currentingr := app.DesiredIngress(nil, true)
 				app2.UpdateService(currentsvc, nil)
-				app2.UpdateIngress(currentingr, nil)
+				app2.UpdateIngress(currentingr, nil, true)
 				Expect(len(currentsvc.Spec.Ports)).Should(Equal(1))
 				Expect(currentsvc.Spec.Ports[0].TargetPort.String()).Should(Equal("22"))
 				Expect(currentsvc.Spec.Selector).Should(Equal(map[string]string{
@@ -86,6 +86,8 @@ var _ = Describe("Route Handler", func() {
 				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).Should(Equal(app2.DesiredService(nil).Name))
 				Expect(currentingr.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort.String()).Should(Equal(app2.DesiredService(nil).Spec.Ports[0].TargetPort.String()))
 				Expect(app2.Routes[1].Hostname).Should(Equal("dizzylizard2.cap.xxxxx.nip.io"))
+				Expect(currentingr.Spec.TLS[0].Hosts).Should(Equal([]string{"dizzylizard.cap.xxxxx.nip.io"}))
+				Expect(currentingr.Spec.TLS[0].SecretName).Should(Equal("foo-tls"))
 			})
 		})
 	})

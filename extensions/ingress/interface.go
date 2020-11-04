@@ -9,7 +9,7 @@ type RouteHandler interface {
 	Validate() bool
 	FirstInstance() bool
 	UpdateService(svc *corev1.Service, labels map[string]string) *corev1.Service
-	UpdateIngress(in *v1beta1.Ingress, labels map[string]string) *v1beta1.Ingress
+	UpdateIngress(in *v1beta1.Ingress, labels map[string]string, tls bool) *v1beta1.Ingress
 	DesiredService(map[string]string) *corev1.Service
-	DesiredIngress(map[string]string) *v1beta1.Ingress
+	DesiredIngress(map[string]string, bool) *v1beta1.Ingress
 }

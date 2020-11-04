@@ -14,6 +14,7 @@ import (
 type PodWatcher struct {
 	GetRouteHandler func(*corev1.Pod) RouteHandler
 	CustomLabels    map[string]string
+	TLS             bool
 }
 
 func NewPodWatcher(labels map[string]string) *PodWatcher {
@@ -72,12 +73,12 @@ func (pw *PodWatcher) Handle(manager eirinix.Manager, e watch.Event) {
 		}
 		fmt.Println("Deleted Services", app.DesiredService(pw.CustomLabels).GetName())
 
-		err = clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Delete(app.DesiredIngress(pw.CustomLabels).GetName(), nil)
+		err = clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Delete(app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName(), nil)
 		if err != nil {
 			manager.GetLogger().Error((err.Error()))
 			return
 		}
-		fmt.Println("Deleted ingress", app.DesiredIngress(pw.CustomLabels).GetName())
+		fmt.Println("Deleted ingress", app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName())
 
 	default:
 		if svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Get(app.DesiredService(pw.CustomLabels).GetName(), metav1.GetOptions{}); err == nil {
@@ -96,15 +97,15 @@ func (pw *PodWatcher) Handle(manager eirinix.Manager, e watch.Event) {
 			fmt.Println("Created service", svc.GetName())
 		}
 
-		if ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Get(app.DesiredIngress(pw.CustomLabels).GetName(), metav1.GetOptions{}); err == nil {
-			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Update(app.UpdateIngress(ingr, pw.CustomLabels))
+		if ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Get(app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName(), metav1.GetOptions{}); err == nil {
+			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Update(app.UpdateIngress(ingr, pw.CustomLabels, pw.TLS))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				//	return
 			}
 			fmt.Println("Updated Ingress", ingr.GetName())
 		} else {
-			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Create(app.DesiredIngress(pw.CustomLabels))
+			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Create(app.DesiredIngress(pw.CustomLabels, pw.TLS))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				return
