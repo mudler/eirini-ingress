@@ -93,7 +93,7 @@ func (e EiriniApp) DesiredService(labels map[string]string) *corev1.Service {
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt(e.Routes[0].Port)}},
+			Ports: []corev1.ServicePort{{Port: int32(e.Routes[0].Port), TargetPort: intstr.FromInt(e.Routes[0].Port)}},
 			Selector: map[string]string{
 				eirinix.LabelGUID: e.GUID,
 			},
