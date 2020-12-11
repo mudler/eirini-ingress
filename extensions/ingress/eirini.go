@@ -68,29 +68,35 @@ func (e EiriniApp) FirstInstance() bool {
 }
 
 // UpdateService updates the given service from the Eirini app desired state
-func (e EiriniApp) UpdateService(svc *corev1.Service, labels map[string]string) *corev1.Service {
-	desired := e.DesiredService(labels)
-	// Updates only the ports
+func (e EiriniApp) UpdateService(svc *corev1.Service, labels, annotations map[string]string) *corev1.Service {
+	desired := e.DesiredService(labels, annotations)
+
+	// Updates only the ports and meta
+	svc.Annotations = annotations
+	svc.Labels = labels
 	svc.Spec.Ports = desired.Spec.Ports
 	svc.Spec.Selector = desired.Spec.Selector
 	return svc
 }
 
 // UpdateIngress updates the given ingress from the Eirini app desired state
-func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels map[string]string, tls bool) *v1beta1.Ingress {
-	desired := e.DesiredIngress(labels, tls)
-	// Updates only the routes
+func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels, annotations map[string]string, tls bool) *v1beta1.Ingress {
+	desired := e.DesiredIngress(labels, annotations, tls)
+	// Updates only the routes and meta
+	in.Annotations = annotations
+	in.Labels = labels
 	in.Spec.Rules = desired.Spec.Rules
 	return in
 }
 
 // DesiredService generates the desired service from the routes annotated in the Eirini App
-func (e EiriniApp) DesiredService(labels map[string]string) *corev1.Service {
+func (e EiriniApp) DesiredService(labels, annotations map[string]string) *corev1.Service {
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      e.Name,
-			Namespace: e.Namespace,
-			Labels:    labels,
+			Name:        e.Name,
+			Namespace:   e.Namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{{Port: int32(e.Routes[0].Port), TargetPort: intstr.FromInt(e.Routes[0].Port)}},
@@ -102,7 +108,7 @@ func (e EiriniApp) DesiredService(labels map[string]string) *corev1.Service {
 }
 
 // DesiredIngress generates the desired ingress from the routes annotated in the Eirini App
-func (e EiriniApp) DesiredIngress(labels map[string]string, tls bool) *v1beta1.Ingress {
+func (e EiriniApp) DesiredIngress(labels, annotations map[string]string, tls bool) *v1beta1.Ingress {
 	rules := []v1beta1.IngressRule{}
 	for _, route := range e.Routes {
 		rules = append(rules, v1beta1.IngressRule{
@@ -111,7 +117,7 @@ func (e EiriniApp) DesiredIngress(labels map[string]string, tls bool) *v1beta1.I
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: []v1beta1.HTTPIngressPath{{Path: "/",
 						Backend: v1beta1.IngressBackend{
-							ServiceName: e.DesiredService(labels).ObjectMeta.Name,
+							ServiceName: e.DesiredService(labels, annotations).ObjectMeta.Name,
 							ServicePort: intstr.FromInt(route.Port),
 						},
 					}},
@@ -130,7 +136,7 @@ func (e EiriniApp) DesiredIngress(labels map[string]string, tls bool) *v1beta1.I
 			tlsEntry = append(tlsEntry,
 				v1beta1.IngressTLS{
 					Hosts:      []string{route.Hostname},
-					SecretName: fmt.Sprintf("%s-tls", e.DesiredService(labels).ObjectMeta.Name),
+					SecretName: fmt.Sprintf("%s-tls", e.DesiredService(labels, annotations).ObjectMeta.Name),
 				})
 		}
 		spec.TLS = tlsEntry
@@ -138,9 +144,10 @@ func (e EiriniApp) DesiredIngress(labels map[string]string, tls bool) *v1beta1.I
 
 	return &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      e.Name,
-			Namespace: e.Namespace,
-			Labels:    labels,
+			Name:        e.Name,
+			Namespace:   e.Namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: spec,
 	}

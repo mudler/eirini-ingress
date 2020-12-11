@@ -90,5 +90,40 @@ var _ = Describe("Route Handler", func() {
 				Expect(currentingr.Spec.TLS[0].SecretName).Should(Equal("foo-tls"))
 			})
 		})
+
+		Context("Custom Annotations and Labels", func() {
+			var app2 EiriniApp
+			var testLabel, testAnnotations map[string]string
+			BeforeEach(func() {
+				app2 = NewEiriniApp(&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "foo",
+						Name:      "dizzylizard-test-79699025f0-0",
+					}})
+				testLabel = map[string]string{"foo": "bar"}
+				testAnnotations = map[string]string{"baz": "annotation"}
+			})
+
+			It("adds annotations and labels correctly", func() {
+				currentsvc := app.DesiredService(testLabel, testAnnotations)
+				currentingr := app.DesiredIngress(testLabel, testAnnotations, true)
+
+				Expect(currentsvc.Annotations).Should(Equal(testAnnotations))
+				Expect(currentsvc.Labels).Should(Equal(testLabel))
+				Expect(currentingr.Annotations).Should(Equal(testAnnotations))
+				Expect(currentingr.Labels).Should(Equal(testLabel))
+			})
+
+			It("updates annotations and labels correctly", func() {
+				currentsvc := app.DesiredService(nil, nil)
+				currentingr := app.DesiredIngress(nil, nil, true)
+				app2.UpdateService(currentsvc, testLabel, testAnnotations)
+				app2.UpdateIngress(currentingr, testLabel, testAnnotations, true)
+				Expect(currentsvc.Annotations).Should(Equal(testAnnotations))
+				Expect(currentsvc.Labels).Should(Equal(testLabel))
+				Expect(currentingr.Annotations).Should(Equal(testAnnotations))
+				Expect(currentingr.Labels).Should(Equal(testLabel))
+			})
+		})
 	})
 })

@@ -19,6 +19,7 @@ var cfgFile string
 var kubeconfig string
 var namespace string
 var labels string
+var annotations string
 
 var rootCmd = &cobra.Command{
 	Use:   "eirini-ingress",
@@ -29,19 +30,23 @@ var rootCmd = &cobra.Command{
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
 		viper.BindPFlag("labels", cmd.Flags().Lookup("labels"))
 		viper.BindPFlag("tls", cmd.Flags().Lookup("tls"))
+		viper.BindPFlag("annotations", cmd.Flags().Lookup("annotations"))
 
 		viper.BindEnv("kubeconfig", "KUBECONFIG")
 		viper.BindEnv("namespace", "NAMESPACE")
 		viper.BindEnv("labels", "LABELS")
+		viper.BindEnv("annotations", "ANNOTATIONS")
 		viper.BindEnv("tls", "ENABLE_TLS")
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		var resourceLabels = make(map[string]string)
+		var resourceAnnotations = make(map[string]string)
 
 		ns := viper.GetString("namespace")
 		tls := viper.GetBool("tls")
 
+		json.Unmarshal([]byte(viper.GetString("annotations")), &resourceAnnotations)
 		json.Unmarshal([]byte(viper.GetString("labels")), &resourceLabels)
 		filter := false
 		opts := eirinix.ManagerOptions{
@@ -75,7 +80,7 @@ var rootCmd = &cobra.Command{
 
 		}
 
-		ext := ingress.NewPodWatcher(resourceLabels)
+		ext := ingress.NewPodWatcher(resourceLabels, resourceAnnotations)
 		ext.TLS = tls
 		opts.WatcherStartRV = metaObj.GetResourceVersion()
 		x.SetManagerOptions(opts)
@@ -100,4 +105,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&kubeconfig, "kubeconfig", "k", "", "Path to a kubeconfig, not required in-cluster")
 	rootCmd.PersistentFlags().StringVarP(&labels, "labels", "l", "", "Label to apply to the created resources ( json form '{ 'foo': 'bar' }' )")
 	rootCmd.PersistentFlags().BoolP("tls", "t", false, "Enable TLS support")
+	rootCmd.PersistentFlags().StringVarP(&annotations, "annotations", "a", "", "Annotations to apply to the created resources ( json form '{ 'foo': 'bar' }' )")
+
 }

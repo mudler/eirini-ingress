@@ -12,17 +12,18 @@ import (
 )
 
 type PodWatcher struct {
-	GetRouteHandler func(*corev1.Pod) RouteHandler
-	CustomLabels    map[string]string
-	TLS             bool
+	GetRouteHandler                 func(*corev1.Pod) RouteHandler
+	CustomLabels, CustomAnnotations map[string]string
+	TLS                             bool
 }
 
-func NewPodWatcher(labels map[string]string) *PodWatcher {
+func NewPodWatcher(labels, annotations map[string]string) *PodWatcher {
 	return &PodWatcher{
 		GetRouteHandler: func(pod *corev1.Pod) RouteHandler {
 			return NewEiriniApp(pod)
 		},
-		CustomLabels: labels,
+		CustomLabels:      labels,
+		CustomAnnotations: annotations,
 	}
 }
 
@@ -54,7 +55,7 @@ func (pw *PodWatcher) Handle(manager eirinix.Manager, e watch.Event) {
 	switch e.Type {
 	case watch.Deleted:
 
-		set := labels.Set(app.DesiredService(pw.CustomLabels).Spec.Selector)
+		set := labels.Set(app.DesiredService(pw.CustomLabels, pw.CustomAnnotations).Spec.Selector)
 		listOptions := metav1.ListOptions{LabelSelector: set.AsSelector().String()}
 		pods, err := clientset.CoreV1().Pods(pod.GetNamespace()).List(listOptions)
 		if err != nil {
@@ -66,30 +67,30 @@ func (pw *PodWatcher) Handle(manager eirinix.Manager, e watch.Event) {
 			return
 		}
 
-		err = clientset.CoreV1().Services(pod.GetNamespace()).Delete(app.DesiredService(pw.CustomLabels).GetName(), nil)
+		err = clientset.CoreV1().Services(pod.GetNamespace()).Delete(app.DesiredService(pw.CustomLabels, pw.CustomAnnotations).GetName(), nil)
 		if err != nil {
 			manager.GetLogger().Error((err.Error()))
 			//	return
 		}
-		fmt.Println("Deleted Services", app.DesiredService(pw.CustomLabels).GetName())
+		fmt.Println("Deleted Services", app.DesiredService(pw.CustomLabels, pw.CustomAnnotations).GetName())
 
-		err = clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Delete(app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName(), nil)
+		err = clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Delete(app.DesiredIngress(pw.CustomLabels, pw.CustomAnnotations, pw.TLS).GetName(), nil)
 		if err != nil {
 			manager.GetLogger().Error((err.Error()))
 			return
 		}
-		fmt.Println("Deleted ingress", app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName())
+		fmt.Println("Deleted ingress", app.DesiredIngress(pw.CustomLabels, pw.CustomAnnotations, pw.TLS).GetName())
 
 	default:
-		if svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Get(app.DesiredService(pw.CustomLabels).GetName(), metav1.GetOptions{}); err == nil {
-			svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Update(app.UpdateService(svc, pw.CustomLabels))
+		if svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Get(app.DesiredService(pw.CustomLabels, pw.CustomAnnotations).GetName(), metav1.GetOptions{}); err == nil {
+			svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Update(app.UpdateService(svc, pw.CustomLabels, pw.CustomAnnotations))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				//	return
 			}
 			fmt.Println("Updated service", svc.GetName())
 		} else {
-			svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Create(app.DesiredService(pw.CustomLabels))
+			svc, err := clientset.CoreV1().Services(pod.GetNamespace()).Create(app.DesiredService(pw.CustomLabels, pw.CustomAnnotations))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				//	return
@@ -97,15 +98,15 @@ func (pw *PodWatcher) Handle(manager eirinix.Manager, e watch.Event) {
 			fmt.Println("Created service", svc.GetName())
 		}
 
-		if ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Get(app.DesiredIngress(pw.CustomLabels, pw.TLS).GetName(), metav1.GetOptions{}); err == nil {
-			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Update(app.UpdateIngress(ingr, pw.CustomLabels, pw.TLS))
+		if ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Get(app.DesiredIngress(pw.CustomLabels, pw.CustomAnnotations, pw.TLS).GetName(), metav1.GetOptions{}); err == nil {
+			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Update(app.UpdateIngress(ingr, pw.CustomLabels, pw.CustomAnnotations, pw.TLS))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				//	return
 			}
 			fmt.Println("Updated Ingress", ingr.GetName())
 		} else {
-			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Create(app.DesiredIngress(pw.CustomLabels, pw.TLS))
+			ingr, err := clientset.ExtensionsV1beta1().Ingresses(pod.GetNamespace()).Create(app.DesiredIngress(pw.CustomLabels, pw.CustomAnnotations, pw.TLS))
 			if err != nil {
 				manager.GetLogger().Error((err.Error()))
 				return
