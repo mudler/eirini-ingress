@@ -86,11 +86,23 @@ func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels, annotations map[st
 	in.Annotations = annotations
 	in.Labels = labels
 	in.Spec.Rules = desired.Spec.Rules
+	in.Spec.TLS = desired.Spec.TLS
+
 	return in
 }
 
 // DesiredService generates the desired service from the routes annotated in the Eirini App
 func (e EiriniApp) DesiredService(labels, annotations map[string]string) *corev1.Service {
+	ports := []corev1.ServicePort{}
+	addedPorts := map[int]interface{}{}
+	for _, route := range e.Routes {
+		if _, ok := addedPorts[route.Port]; ok {
+			continue
+		}
+		ports = append(ports, corev1.ServicePort{Port: int32(route.Port), TargetPort: intstr.FromInt(route.Port)})
+		addedPorts[route.Port] = nil
+	}
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        e.Name,
@@ -99,7 +111,7 @@ func (e EiriniApp) DesiredService(labels, annotations map[string]string) *corev1
 			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{{Port: int32(e.Routes[0].Port), TargetPort: intstr.FromInt(e.Routes[0].Port)}},
+			Ports: ports,
 			Selector: map[string]string{
 				eirinix.LabelGUID: e.GUID,
 			},
@@ -133,6 +145,7 @@ func (e EiriniApp) DesiredIngress(labels, annotations map[string]string, tls boo
 	if tls {
 		tlsEntry := []v1beta1.IngressTLS{}
 		for _, route := range e.Routes {
+
 			tlsEntry = append(tlsEntry,
 				v1beta1.IngressTLS{
 					Hosts:      []string{route.Hostname},
