@@ -24,11 +24,13 @@ var _ = Describe("Route Handler", func() {
 					Namespace: "foo",
 					Name:      "dizzylizard-test-79699025f0-0",
 					Labels: map[string]string{
-						eirinix.LabelGUID: "test",
+						eirinix.LabelGUID:        "test",
+						"app.kubernetes.io/name": "foo",
 					},
 					Annotations: map[string]string{
-						AppNameAnnotation: "foo",
-						RoutesAnnotation:  `[{"hostname":"dizzylizard.cap.xxxxx.nip.io","port":8080}]`,
+						AnnotationCopyKubernetesGenericLabels: "true",
+						AppNameAnnotation:                     "foo",
+						RoutesAnnotation:                      `[{"hostname":"dizzylizard.cap.xxxxx.nip.io","port":8080}]`,
 					},
 				}})
 		})
@@ -37,6 +39,7 @@ var _ = Describe("Route Handler", func() {
 			It("decodes it correctly", func() {
 				Expect(app.PodName).Should(Equal("dizzylizard-test-79699025f0-0"))
 				Expect(app.Routes[0].Hostname).Should(Equal("dizzylizard.cap.xxxxx.nip.io"))
+				Expect(app.CopyKubernetesGenericLabels).Should(Equal("true"))
 
 				Expect(app.FirstInstance()).Should(BeTrue())
 				Expect(app.Validate()).Should(BeTrue(), fmt.Sprint(app))
@@ -106,6 +109,12 @@ var _ = Describe("Route Handler", func() {
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "foo",
 						Name:      "dizzylizard-test-79699025f0-0",
+						Labels: map[string]string{
+							"app.kubernetes.io/name": "foo",
+						},
+						Annotations: map[string]string{
+							AnnotationCopyKubernetesGenericLabels: "true",
+						},
 					}})
 				testLabel = map[string]string{"foo": "bar"}
 				testAnnotations = map[string]string{"baz": "annotation"}

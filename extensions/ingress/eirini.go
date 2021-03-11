@@ -3,6 +3,7 @@ package ingress
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	eirinix "github.com/SUSE/eirinix"
 	corev1 "k8s.io/api/core/v1"
@@ -14,20 +15,31 @@ import (
 const (
 	// AppNameAnnotation is the annotation label containing the Eirini application name
 	AppNameAnnotation = "cloudfoundry.org/application_name"
+	// AnnotationCopyKubernetesGenericLabels is the annotation which enables copy of
+	// kubernetes generic labels that start with `app.kubernetes.org`
+	AnnotationCopyKubernetesGenericLabels = "eirinix.suse.org/CopyKubeGenericLabels"
 	// RoutesAnnotation is the annotation label containing the Eirini application routes
 	RoutesAnnotation = "cloudfoundry.org/routes"
+)
+
+var (
+	// KubeGenericLabelPrefix is the prefix of kubernetes generic label key
+	KubeGenericLabelPrefix = "app.kubernetes.io"
 )
 
 // EiriniApp is the default RouteHandler for Eirini applications.
 // It generates and reconciles the required data to handle routing with kubernetes native ingress
 // resources.
 type EiriniApp struct {
-	GUID       string
-	Name       string
-	Namespace  string
-	PodName    string
-	InstanceID string
-	Routes     []Route
+	GUID                        string
+	Name                        string
+	Namespace                   string
+	PodName                     string
+	InstanceID                  string
+	Labels                      map[string]string
+	Annotations                 map[string]string
+	CopyKubernetesGenericLabels string
+	Routes                      []Route
 }
 
 // Route represent a route information (hostname/port)
@@ -42,6 +54,10 @@ func NewEiriniApp(pod *corev1.Pod) (app EiriniApp) {
 
 	app.GUID, _ = pod.GetLabels()[eirinix.LabelGUID]
 	app.Name, _ = pod.GetAnnotations()[AppNameAnnotation] // we will use it for the service name
+	app.CopyKubernetesGenericLabels = pod.GetAnnotations()[AnnotationCopyKubernetesGenericLabels]
+	app.Labels = pod.GetLabels()
+	app.Annotations = pod.GetAnnotations()
+
 	app.Namespace = pod.GetNamespace()
 	app.PodName = pod.GetName()
 	app.InstanceID = getInstanceID(pod)
@@ -72,8 +88,8 @@ func (e EiriniApp) UpdateService(svc *corev1.Service, labels, annotations map[st
 	desired := e.DesiredService(labels, annotations)
 
 	// Updates only the ports and meta
-	svc.Annotations = annotations
-	svc.Labels = labels
+	svc.Annotations = desired.Annotations
+	svc.Labels = desired.Labels
 	svc.Spec.Ports = desired.Spec.Ports
 	svc.Spec.Selector = desired.Spec.Selector
 	return svc
@@ -83,8 +99,8 @@ func (e EiriniApp) UpdateService(svc *corev1.Service, labels, annotations map[st
 func (e EiriniApp) UpdateIngress(in *v1beta1.Ingress, labels, annotations map[string]string, tls bool) *v1beta1.Ingress {
 	desired := e.DesiredIngress(labels, annotations, tls)
 	// Updates only the routes and meta
-	in.Annotations = annotations
-	in.Labels = labels
+	in.Annotations = desired.Annotations
+	in.Labels = desired.Labels
 	in.Spec.Rules = desired.Spec.Rules
 	in.Spec.TLS = desired.Spec.TLS
 
@@ -101,6 +117,19 @@ func (e EiriniApp) DesiredService(labels, annotations map[string]string) *corev1
 		}
 		ports = append(ports, corev1.ServicePort{Port: int32(route.Port), TargetPort: intstr.FromInt(route.Port)})
 		addedPorts[route.Port] = nil
+	}
+
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	// Copy kubernetes generic labels from pod to service
+	if e.CopyKubernetesGenericLabels == "true" {
+		for key, value := range e.Labels {
+			if strings.Contains(key, KubeGenericLabelPrefix) {
+				labels[key] = value
+			}
+		}
 	}
 
 	return &corev1.Service{
@@ -153,6 +182,19 @@ func (e EiriniApp) DesiredIngress(labels, annotations map[string]string, tls boo
 				})
 		}
 		spec.TLS = tlsEntry
+	}
+
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	// Copy kubernetes generic labels from pod to ingress
+	if e.CopyKubernetesGenericLabels == "true" {
+		for key, value := range e.Labels {
+			if strings.Contains(key, KubeGenericLabelPrefix) {
+				labels[key] = value
+			}
+		}
 	}
 
 	return &v1beta1.Ingress{
